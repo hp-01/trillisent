@@ -2,48 +2,27 @@
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors'); // Make sure you've installed it: npm install cors
+// const cors = require('cors'); // REMOVED
 
 const questionRoutes = require('./routes/questionRoutes');
 const assessmentRoutes = require('./routes/assessmentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-// ... potentially other routes
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// --- CORS Configuration ---
-const allowedOrigins = [
-    process.env.FRONTEND_URL,
-];
-
-const corsOptions = {
-    origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) === -1) {
-            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-            return callback(new Error(msg), false);
-        }
-        return callback(null, true);
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Specify allowed methods
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Specify allowed headers
-    credentials: true // If you need to send cookies or authorization headers
-};
-
-app.use(cors(corsOptions));
-// Alternatively, for simpler "allow all" during development (NOT recommended for production):
-// app.use(cors());
-
-// --- End CORS Configuration ---
-
+// NO app.use(cors(...)); line here
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Database Connection
-// ... (your DB connection logic) ...
+mongoose.connect(process.env.MONGODB_URI)
+.then(() => console.log('MongoDB connected successfully'))
+.catch(err => {
+    console.error('MongoDB connection error:', err);
+    process.exit(1);
+});
 
 // Routes
 app.get('/', (req, res) => {
@@ -53,12 +32,21 @@ app.get('/', (req, res) => {
 app.use('/api/questions', questionRoutes);
 app.use('/api/assessment', assessmentRoutes);
 app.use('/api/admin', adminRoutes);
-// ...
 
-// Not Found and Error Handlers
-// ...
+// Not Found Handler
+app.use((req, res, next) => {
+    res.status(404).json({ message: "Resource not found" });
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(err.status || 500).send({
+        message: err.message || 'Something broke!',
+        error: process.env.NODE_ENV === 'development' ? err : {}
+    });
+});
 
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log(`Allowed frontend origin: ${process.env.FRONTEND_URL}`); // Log your frontend URL
+    console.log(`Server is running on port ${PORT}. CORS is NOT enabled for cross-origin requests.`);
 });
